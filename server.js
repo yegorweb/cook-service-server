@@ -7,6 +7,7 @@ const morgan = require('morgan');
 const path = require('path');
 const cors = require('cors');
 const User = require('./models/User')
+const _ = require('lodash');
 
 const app = express();
 app.use(express.json());
@@ -14,7 +15,7 @@ app.use(express.urlencoded({extended: false}));
 app.use(morgan('dev'));
 app.use(cors());
 
-var db, users, orders, items
+var db, users, orders, items, information
 
 const start = async () => {
     app.listen(3000, () => {
@@ -31,6 +32,7 @@ const start = async () => {
             users = db.collection('users');
             orders = db.collection('orders');
             items = db.collection('items');
+            information = db.collection('information');
         }
     )
 }
@@ -41,7 +43,7 @@ app.post('/registration', async function(req, res) {
         console.log('Пытались зарегаться')
         console.log()
         const {name, fullphone, phone, password} = req.body;
-        const candidate = await users.findOne({phone: phone})
+        let candidate = await users.findOne({phone: phone})
         if (candidate) {
             return res.status(400).json({message: "Пользователь с таким же номером телефона уже существует"})
         }
@@ -70,13 +72,20 @@ app.post('/add-to-cart', async function(req, res) {
         let value = req.body
         var id = new ObjectId((value.user_id).trim())
         let user = await users.findOne({'_id': id})
-        console.log(value)
-        if (user) {
-            users.updateOne({'_id': id}, {$push: {'cart': value.item}})
-            res.status(200).send()
-        } else {
+        if (!user) {
             res.status(404).send()
         }
+        let cart = user.cart
+        console.log(cart)
+        for (let i = 0; i < cart.length; i++) {
+            if (_.isEqual(cart[i], value.item)) {
+                res.status(304).send()
+                return
+            }
+        }
+        users.updateOne({'_id': id}, {$push: {'cart': value.item}})
+        console.log(value.item)
+        res.status(200).send()
     } catch(e) {
         res.send({message: 'Error: ' + e})
         console.error('Error: ' + e)
@@ -97,16 +106,15 @@ app.get('/user-orders', async function(req, res) {
         let id = new ObjectId((req.query.id).trim())
         var user = await users.findOne({'_id': id})
         var user_orders = []
-        if (user) {
-            for (let i = 0; i < user.orders.length; i++) {
-                let order_id = new ObjectId((user.orders[i]).trim())
-                let order = await orders.findOne({'_id': order_id})
-                console.log(order)
-                user_orders.push(order)
-            }
-        } else {
+        if (!user) {
             res.status(404).send()
             return
+        }
+        for (let i = 0; i < user.orders.length; i++) {
+            let order_id = new ObjectId((user.orders[i]).trim())
+            let order = await orders.findOne({'_id': order_id})
+            console.log(order)
+            user_orders.push(order)
         }
         console.log('ORDERS: '+user_orders)
         res.send(user_orders)
@@ -167,6 +175,16 @@ app.get('/item', async function(req, res) {
         let item = await items.findOne({'_id': id})
         console.log(item)
         res.send(item)
+    } catch(e) {
+        res.send({message: 'Error: ' + e})
+        console.error('Error: ' + e)
+    }
+})
+app.get('/info', async function(req, res) {
+    try {
+        let info = await db.collection('information').find().toArray()
+        info = Object.assign(...info)
+        res.send(info)
     } catch(e) {
         res.send({message: 'Error: ' + e})
         console.error('Error: ' + e)
