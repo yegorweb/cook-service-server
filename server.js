@@ -8,6 +8,7 @@ const path = require('path');
 const cors = require('cors');
 const User = require('./models/User')
 const _ = require('lodash');
+const etag = require('etag')
 
 const app = express();
 app.use(express.json());
@@ -73,21 +74,28 @@ app.post('/add-to-cart', async function(req, res) {
         var id = new ObjectId((value.user_id).trim())
         let user = await users.findOne({'_id': id})
         if (!user) {
-            res.status(404).send()
+            res.status(404).send({message: 'Авторизуйтесь, чтобы добавить блюдо в корзину', type: 'error'})
+            return
         }
         let cart = user.cart
         console.log(cart)
         for (let i = 0; i < cart.length; i++) {
-            if (_.isEqual(cart[i], value.item)) {
-                res.status(304).send()
+            let comparable_cart_item = Object.assign({}, cart[i])
+            delete comparable_cart_item.amount
+
+            let comparable_req_item = Object.assign({}, value.item)
+            delete comparable_req_item.amount
+
+            if (_.isEqual(comparable_cart_item, comparable_req_item)) {
+                res.status(304).send({message: 'Упс! Такое в вашей корзине уже лежит', type: 'info'})
                 return
             }
         }
         users.updateOne({'_id': id}, {$push: {'cart': value.item}})
         console.log(value.item)
-        res.status(200).send()
+        res.status(200).send({message: 'Блюдо добавлено в корзину', type: 'success'})
     } catch(e) {
-        res.send({message: 'Error: ' + e})
+        res.send({message: 'Error: ' + e, type: 'error'})
         console.error('Error: ' + e)
     }
 })
@@ -97,7 +105,7 @@ app.get('/items', async function(req, res) {
         result ? res.status(200).send(result) : res.status(404).send()
         return
     } catch(e) {
-        res.send({message: 'Error: ' + e})
+        res.send({message: 'Error: ' + e, type: 'error'})
         console.error('Error: ' + e)
     }
 })
@@ -113,6 +121,10 @@ app.get('/user-orders', async function(req, res) {
         for (let i = 0; i < user.orders.length; i++) {
             let order_id = new ObjectId((user.orders[i]).trim())
             let order = await orders.findOne({'_id': order_id})
+            if (!order) {
+                res.status(404).send()
+                return
+            }
             console.log(order)
             user_orders.push(order)
         }
@@ -120,7 +132,7 @@ app.get('/user-orders', async function(req, res) {
         res.send(user_orders)
         return
     } catch(e) {
-        res.send({message: 'Error: ' + e})
+        res.send({message: 'Error: ' + e, type: 'error'})
         console.error('Error: ' + e)
     }
 })
@@ -129,10 +141,14 @@ app.get('/order', async function(req, res) {
         let id = new ObjectId((req.query.id).trim())
         console.log(id)
         let order = await orders.findOne({'_id': id})
+        if (!order) {
+            res.status(404).send()
+            return
+        }
         console.log(order)
         res.send(order)
     } catch(e) {
-        res.send({message: 'Error: ' + e})
+        res.send({message: 'Error: ' + e, type: 'error'})
         console.error('Error: ' + e)
     }
 })
@@ -146,25 +162,24 @@ app.get('/get-cart', async function(req, res) {
         }
         var cart = user.cart
         if (cart.length == 0) {
-            res.send()
+            res.status(202).send()
             return
         }
         for (let i = 0; i < cart.length; i++) {
             let item_id = new ObjectId((cart[i]._id).trim())
             let item = await items.findOne({'_id': item_id})
-            if (item) {
-                cart[i] = Object.assign({}, item, cart[i])
-                console.log(Object.assign({}, item, cart[i]))
-            } else {
+            if (!item) {
                 res.status(404).send()
                 return
             }
+            cart[i] = Object.assign({}, item, cart[i])
+            console.log(Object.assign({}, item, cart[i]))
         }
-        res.send(cart)
+        res.status(200).send(cart)
         console.log(cart)
         return
     } catch(e) {
-        res.send({message: 'Error: ' + e})
+        res.send({message: 'Error: ' + e, type: 'error'})
         console.error('Error: ' + e)
     }
 })
@@ -173,10 +188,14 @@ app.get('/item', async function(req, res) {
         let id = new ObjectId((req.query.id).trim())
         console.log(id)
         let item = await items.findOne({'_id': id})
+        if (!item) {
+            res.status(404).send()
+            return
+        }
         console.log(item)
         res.send(item)
     } catch(e) {
-        res.send({message: 'Error: ' + e})
+        res.send({message: 'Error: ' + e, type: 'error'})
         console.error('Error: ' + e)
     }
 })
@@ -186,7 +205,7 @@ app.get('/info', async function(req, res) {
         info = Object.assign(...info)
         res.send(info)
     } catch(e) {
-        res.send({message: 'Error: ' + e})
+        res.send({message: 'Error: ' + e, type: 'error'})
         console.error('Error: ' + e)
     }
 })
