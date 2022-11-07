@@ -71,7 +71,7 @@ app.post('/registration', async function(req, res) {
 app.post('/add-to-cart', async function(req, res) {
     try {
         let value = req.body
-        var id = new ObjectId((value.user_id).trim())
+        let id = new ObjectId((value.user_id).trim())
         let user = await users.findOne({'_id': id})
         if (!user) {
             res.status(404).send({message: 'Авторизуйтесь, чтобы добавить блюдо в корзину', type: 'error'})
@@ -94,6 +94,43 @@ app.post('/add-to-cart', async function(req, res) {
         users.updateOne({'_id': id}, {$push: {'cart': value.item}})
         console.log(value.item)
         res.status(200).send({message: 'Блюдо добавлено в корзину', type: 'success'})
+    } catch(e) {
+        res.send({message: 'Error: ' + e, type: 'error'})
+        console.error('Error: ' + e)
+    }
+})
+app.post('/add-address', async function(req, res) {
+    try {
+        let value = req.body
+        let id = new ObjectId((value.user_id).trim())
+        let user = await users.findOne({'_id': id})
+        if (!user) {
+            res.status(404).send({message: 'Авторизуйтесь, чтобы добавить адрес', type: 'error'})
+            return
+        }
+        let addresses = user.addresses
+        if (addresses.find(address => address.name === value.address.name && address.address === value.address.address)) {
+            res.status(400).send({message: 'Адрес с таким именем или адресом вы уже добавили', type: 'error'})
+            return
+        }
+        users.updateOne({'_id': id}, {$push: {'addresses': value.address}})
+        res.status(200).send({message: 'Адрес успешно добавлен', type: 'success'})
+        return
+    } catch(e) {
+        res.send({message: 'Error: ' + e, type: 'error'})
+        console.error('Error: ' + e)
+    }
+})
+app.get('/get-addresses', async function(req, res) {
+    try {
+        let id = new ObjectId((req.query.id).trim())
+        let user = await users.findOne({'_id': id})
+        if (!user) {
+            res.status(404).send({message: 'Авторизуйтесь, чтобы посмотреть ваши адреса', type: 'error'})
+            return
+        }
+        res.status(200).send(user.addresses)
+        return
     } catch(e) {
         res.send({message: 'Error: ' + e, type: 'error'})
         console.error('Error: ' + e)
