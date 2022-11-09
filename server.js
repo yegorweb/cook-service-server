@@ -9,12 +9,14 @@ const cors = require('cors');
 const User = require('./models/User')
 const _ = require('lodash');
 const etag = require('etag')
+const authRouter = require('./services/auth/authRouter')
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({extended: false}));
 app.use(morgan('dev'));
 app.use(cors());
+app.use(authRouter)
 
 var db, users, orders, items, information
 
@@ -39,34 +41,8 @@ const start = async () => {
 }
 start();
 
-app.post('/registration', async function(req, res) {
-    try {
-        console.log('Пытались зарегаться')
-        console.log()
-        const {name, fullphone, phone, password} = req.body;
-        let candidate = await users.findOne({phone: phone})
-        if (candidate) {
-            return res.status(400).json({message: "Пользователь с таким же номером телефона уже существует"})
-        }
-        const hashPassword = bcrypt.hashSync(password, 7);
-        console.log(req.body)
-        const user = new User({name: name, fullphone: fullphone, phone: phone, password: hashPassword, roles: ["USER"]})
-        users.insertOne(user, (err, result) => {
-            if (err) {
-                console.error(err)
-                console.log("не добавлен(((\n-------------------")
-                res.status(500).json({message: 'Ошибка сервера: ' + err })
-                res.send()
-                return
-            }
-            console.log(result)
-            console.log("добавлен)\n-------------------")
-            res.status(200)
-            res.send()
-        })
-    } catch (e) {
-        res.status(400).json({message: 'Ошибка сервера: ' + e})
-    }
+app.post('/auth/registration', async function(req, res) {
+    
 })
 app.post('/add-to-cart', async function(req, res) {
     try {
@@ -246,3 +222,5 @@ app.get('/info', async function(req, res) {
         console.error('Error: ' + e)
     }
 })
+
+module.exports = db, users, orders, items, information

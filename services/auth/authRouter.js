@@ -7,6 +7,7 @@ const roleMiddleware = require('./middlewaree/roleMiddleware')
 const { collection } = require('./models/User')
 
 router.use(cors())
-router.post('/registration', controller.registration)
+router.post('/auth/registration', controller.registration)
+router.post('/auth/login', controller.login)
 
 module.exports = router
